@@ -1,32 +1,83 @@
-const { deterministicPartitionKey } = require("./dpk");
+const { deterministicPartitionKey,TRIVIAL_PARTITION_KEY,generateHash } = require("./dpk");
+const crypto = require("crypto");
 
 describe("deterministicPartitionKey", () => {
-  it("Returns the literal '0' when given no input", () => {
+  it("should returns trivial partition key, when given no input", () => {
     const trivialKey = deterministicPartitionKey();
-    expect(trivialKey).toBe("0");
+    expect(trivialKey).toBe(TRIVIAL_PARTITION_KEY);
   });
-  it("Returns the literal '0' when given null event", () => {
-    const trivialKey = deterministicPartitionKey(null);
-    expect(trivialKey).toBe("0");
+
+
+  it("should return trivial partition key for undefined event", () => {
+    expect(deterministicPartitionKey(undefined)).toEqual(TRIVIAL_PARTITION_KEY);
   });
-  it("Returns the hex value when given event without partitionKey is passed", () => {
-    const trivialKey = deterministicPartitionKey({"test": 123});
-    expect(trivialKey).toBe("1b9f8d070a7e35531de189af81d8f3e3ad17ea7d013a1ef0369381130c3f6dc40354ab90947b98b9340952d4fc93ed44c35fb89a2373f5df21f05924c2be2a91");
+
+  it("should return trivial partition key for null event", () => {
+    expect(deterministicPartitionKey(null)).toEqual(TRIVIAL_PARTITION_KEY);
   });
-  it("Returns the hex value when given event with partitionKey (string) (> MAX_PARTITION_KEY_LENGTH) is passed", () => {
-    const trivialKey = deterministicPartitionKey({"partitionKey": "1b9f8d070a7e35531de189af81d8f3e3ad17ea7d013a1ef0369381130c3f6dc40354ab90947b98b9340952d4fc93ed44c35fb89a2373f5df21f05924c2be2a911b9f8d070a7e35531de189af81d8f3e3ad17ea7d013a1ef0369381130c3f6dc40354ab90947b98b9340952d4fc93ed44c35fb89a2373f5df21f05924c2be2a911b9f8d070a7e35531de189af81d8f3e3ad17ea7d013a1ef0369381130c3f6dc40354ab90947b98b9340952d4fc93ed44c35fb89a2373f5df21f05924c2be2a91"});
-    expect(trivialKey).toBe("c3d631083976bc21ce893693fc2507dae733e9b28a17e157fc7c92bdae0de4299d0b4a64eced2bb7c599bd7eb328f60aa2a6a5804e8348795f7176b3c65aeca9");
+
+  it("should return a hashed value when event is a string", () => {
+    const MOCK_STRING = "abc";
+    const hash = generateHash(JSON.stringify(MOCK_STRING));
+
+    expect(deterministicPartitionKey(MOCK_STRING)).toEqual(hash);
   });
-  it("Returns the hex value when given event with partitionKe (string) (< MAX_PARTITION_KEY_LENGTH) is passed", () => {
-    const trivialKey = deterministicPartitionKey({"partitionKey": "c3d631083976bc21ce893693fc2507dae733e9b28a17e157fc7c92bdae0de4299d0b4a64eced2bb7c599bd7eb328f60aa2a6a5804e8348795f7176b3c65aeca9"});
-    expect(trivialKey).toBe("c3d631083976bc21ce893693fc2507dae733e9b28a17e157fc7c92bdae0de4299d0b4a64eced2bb7c599bd7eb328f60aa2a6a5804e8348795f7176b3c65aeca9");
+
+  it("should return a hashed value if partition key is null", () => {
+    const event = { partitionKey: null };
+    const hash = generateHash(JSON.stringify(event));
+    expect(deterministicPartitionKey(event)).toEqual(hash);
   });
-  it("Returns the hex value when given event with partitionKey (object) (< MAX_PARTITION_KEY_LENGTH) is passed", () => {
-    const trivialKey = deterministicPartitionKey({"partitionKey": {"test": "c3d631083976bc21ce893693fc2507dae733e9b28a17e157fc7c92bdae0de4299d0b4a64eced2bb7c599bd7eb328f60aa2a6a5804e8348795f7176b3c65aeca9"}});
-    expect(trivialKey).toBe("{\"test\":\"c3d631083976bc21ce893693fc2507dae733e9b28a17e157fc7c92bdae0de4299d0b4a64eced2bb7c599bd7eb328f60aa2a6a5804e8348795f7176b3c65aeca9\"}");
+
+  it("should return the provided partitionKey if it's a string and length is within limit", () => {
+    const event = { partitionKey: "P-KEY" };
+    expect(deterministicPartitionKey(event)).toEqual("P-KEY");
   });
-  it("Returns the hex value when given event with partitionKey (object) (> MAX_PARTITION_KEY_LENGTH) is passed", () => {
-    const trivialKey = deterministicPartitionKey({"partitionKey": {"test": "c3d631083976bc21ce893693fc2507dae733e9b28a17e157fc7c92bdae0de4299d0b4a64eced2bb7c599bd7eb328f60aa2a6a5804e8348795f7176b3c65aeca9c3d631083976bc21ce893693fc2507dae733e9b28a17e157fc7c92bdae0de4299d0b4a64eced2bb7c599bd7eb328f60aa2a6a5804e8348795f7176b3c65aeca9c3d631083976bc21ce893693fc2507dae733e9b28a17e157fc7c92bdae0de4299d0b4a64eced2bb7c599bd7eb328f60aa2a6a5804e8348795f7176b3c65aeca9"}});
-    expect(trivialKey).toBe("a8366e50596341cf56b902345f8f877d34c4eb09b6ed8b7943d0599bc294f8d0bb156a48e52ef3f3f2008e3f9bc748ed7320de6487029d397a2f44deded9592a");
+
+  it("should return a hashed value if the provided partitionKey is a string but length exceeds limit", () => {
+    const longString = "KEY".repeat(257);
+    const event = { partitionKey: longString };
+    const hash = generateHash(longString);
+    expect(deterministicPartitionKey(event)).toEqual(hash);
   });
+
+  it("should return a stringified if the partitionKey is not a string", () => {
+    const event = { partitionKey: { k1: 'a', k2: 'b' } };
+    const stringified = JSON.stringify(event.partitionKey);
+    expect(deterministicPartitionKey(event)).toEqual(stringified);
+  });
+
+  it("should return a hashed value of the event object if no partitionKey is provided", () => {
+    const event = { k1: 'a', k2: 'b' };
+    const stringified = JSON.stringify(event);
+    const hash = generateHash(stringified);
+    expect(deterministicPartitionKey(event)).toEqual(hash);
+  });
+
+  it("should return stringified partitionKey when it's a long number", () => {
+    const event = { partitionKey: 12345678901234567890123456789012345678901234567890 };
+    const stringified = JSON.stringify(event.partitionKey);
+    expect(deterministicPartitionKey(event)).toEqual(stringified);
+  });
+
+  it("should return stringified partitionKey when it's a boolean", () => {
+    const event = { partitionKey: true };
+    const stringified = JSON.stringify(event.partitionKey);
+    expect(deterministicPartitionKey(event)).toEqual(stringified);
+  });
+
+  it("should return stringified partitionKey when it's an array", () => {
+    const event = { partitionKey: [1, 2, 3, 4] };
+    const stringified = JSON.stringify(event.partitionKey);
+    expect(deterministicPartitionKey(event)).toEqual(stringified);
+  });
+
+  it("should return stringified partitionKey when it's an object", () => {
+    const event = { partitionKey: { k1: 'a', k2: 'b' }};
+    const stringified = JSON.stringify(event.partitionKey);
+    expect(deterministicPartitionKey(event)).toEqual(stringified);
+  });
+
+  
+
 });

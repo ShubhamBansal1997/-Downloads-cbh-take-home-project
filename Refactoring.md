@@ -12,12 +12,12 @@ You will be graded on the exhaustiveness and quality of your unit tests, the dep
 Key points about the function from which my implementation is made.
 1. By default candidate is always TRIVIAL_PARTITION_KEY
 2. We always need a string value in the candidate so convert to string if it's not a string
-3. If we chose event as the candidate key then we have to run hashing
-4. Otherwise hashing is only executed when the candidate length is > MAX_PARTITION_KEY_LENGTH
+3. If parition key is not present in the event we chose the entire event as candidate then we have to run hashing.
+4. If parition key is provided in the event and >  MAX_PARTITION_KEY_LENGTH then we have to re-hash it again.
 
 In my implementation the key points I feel I improved:
-1. Remove duplicate statements
-   1. candidate = crypto.createHash("sha3-512").update(data).digest("hex");
-   2. JSON.stringify(event)
-2. Make the complex if else nest to simple if else, also remove extra else statements
+
+1. I made code more readable by reducing complexity and making the code more DRY.
+2. First, I common out the hash function and moved it out of our function so that these can be reused separately.
+3. Then, we used modern JS features like Nullish coalescing operator to reduce the complexity of nested if else condition. It also enhanced the code readability.
 
